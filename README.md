@@ -158,12 +158,12 @@ FORWARD_URL=https://your-backend.com/webhook
 |---|---|---|
 | `PORT` | 否 | 监听端口，默认 `3000` |
 | `NODE_ENV` | 否 | 环境标识，`production` 时错误不返回堆栈 |
-| `WECHAT_TOKEN` | **是** | 自定义字符串，用于微信服务器接入验证 |
-| `WECHAT_APP_ID` | **是** | 测试号的 `appID` |
-| `WECHAT_APP_SECRET` | **是** | 测试号的 `appsecret` |
+| `WECHAT_TOKEN` | **是** | **由你自定义的任意字符串**（非平台提供），需与测试号后台「接口配置信息」中填写的 Token 保持一致 |
+| `WECHAT_APP_ID` | **是** | 测试号的 `appID`（平台提供，在测试号管理页面顶部查看） |
+| `WECHAT_APP_SECRET` | **是** | 测试号的 `appsecret`（平台提供，在测试号管理页面顶部查看） |
 | `FORWARD_URL` | 否 | 消息转发目标 URL（如需二次转发） |
 
-> **注意**：`WECHAT_TOKEN` 是你在公众平台填写的自定义验证串，与 `access_token` 是完全不同的概念。
+> **注意**：`WECHAT_TOKEN` 不是微信平台颁发的，是你自己随意定义的字符串（如 `my_bridge_2026`），然后在 `.env` 和测试号后台两边填入同一个值即可。它与 `access_token`（通过 appId+appSecret 向微信服务器请求获得）是完全不同的概念。
 
 ---
 
@@ -179,8 +179,18 @@ FORWARD_URL=https://your-backend.com/webhook
 
 | 字段 | 值 |
 |---|---|
-| URL | `https://你的公网域名/wechat` |
-| Token | 与 `.env` 中 `WECHAT_TOKEN` 完全一致的字符串 |
+| URL | `https://你的公网域名/wechat`（路由固定为 `/wechat`） |
+| Token | **你自定义的任意字符串**，与 `.env` 中 `WECHAT_TOKEN` 完全一致 |
+
+**URL 填写示例：**
+
+| 场景 | URL 示例 |
+|---|---|
+| 本地开发（ngrok） | `https://abc123.ngrok-free.app/wechat` |
+| 本地开发（cloudflared） | `https://xxx.trycloudflare.com/wechat` |
+| 生产部署 | `https://api.example.com/wechat` |
+
+> **重要**：微信要求 URL 只能使用 `http://`（80 端口）或 `https://`（443 端口），**不支持自定义端口号**。如果服务运行在 3000 等其他端口，需要通过 Nginx 等反向代理将 80/443 的流量转发到实际端口。
 
 填写后点击「提交」，微信服务器会向 URL 发送 GET 请求验证签名，验证通过即接入成功。
 
