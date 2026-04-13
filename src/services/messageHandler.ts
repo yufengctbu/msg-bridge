@@ -47,45 +47,50 @@ export async function sendCustomerServiceMessage(
   openid: string,
   reply: WechatReply,
 ): Promise<void> {
-  switch (reply.type) {
-    case 'text':
-      await wechatApi.sendText(openid, reply.content);
-      break;
-    case 'markdown':
-      await wechatApi.sendText(openid, reply.content);
-      break;
-    case 'code':
-      await wechatApi.sendText(openid, `\`\`\`${reply.language}\n${reply.code}\n\`\`\``);
-      break;
-    case 'image':
-      await wechatApi.sendImage(openid, reply.mediaId);
-      break;
-    case 'voice':
-      await wechatApi.sendVoice(openid, reply.mediaId);
-      break;
-    case 'video':
-      await wechatApi.sendVideo(openid, reply.mediaId, reply.thumbMediaId);
-      break;
-    case 'music':
-      await wechatApi.sendMusic(openid, {
-        title: reply.title,
-        description: reply.description,
-        musicurl: reply.musicUrl ?? '',
-        hqmusicurl: reply.hqMusicUrl,
-        thumb_media_id: reply.thumbMediaId,
-      });
-      break;
-    case 'news':
-      await wechatApi.sendNews(
-        openid,
-        reply.articles.map((a) => ({
-          title: a.title,
-          description: a.description,
-          url: a.url,
-          picurl: a.picUrl,
-        })),
-      );
-      break;
+  try {
+    switch (reply.type) {
+      case 'text':
+        await wechatApi.sendText(openid, reply.content);
+        break;
+      case 'markdown':
+        await wechatApi.sendText(openid, reply.content);
+        break;
+      case 'code':
+        await wechatApi.sendText(openid, `\`\`\`${reply.language}\n${reply.code}\n\`\`\``);
+        break;
+      case 'image':
+        await wechatApi.sendImage(openid, reply.mediaId);
+        break;
+      case 'voice':
+        await wechatApi.sendVoice(openid, reply.mediaId);
+        break;
+      case 'video':
+        await wechatApi.sendVideo(openid, reply.mediaId, reply.thumbMediaId);
+        break;
+      case 'music':
+        await wechatApi.sendMusic(openid, {
+          title: reply.title,
+          description: reply.description,
+          musicurl: reply.musicUrl ?? '',
+          hqmusicurl: reply.hqMusicUrl,
+          thumb_media_id: reply.thumbMediaId,
+        });
+        break;
+      case 'news':
+        await wechatApi.sendNews(
+          openid,
+          reply.articles.map((a) => ({
+            title: a.title,
+            description: a.description,
+            url: a.url,
+            picurl: a.picUrl,
+          })),
+        );
+        break;
+    }
+  } catch (err) {
+    console.error(`[wechat] 客服消息发送失败 (openid=${openid}, type=${reply.type}):`, err);
+    throw err;
   }
 }
 

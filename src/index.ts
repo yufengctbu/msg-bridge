@@ -34,3 +34,12 @@ function gracefulShutdown(signal: string): void {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ── 兜底异常处理（防止未捕获的异步错误导致进程静默退出）─────
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err);
+  process.exit(1);
+});

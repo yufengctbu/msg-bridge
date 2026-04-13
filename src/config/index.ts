@@ -7,7 +7,14 @@ import 'dotenv/config';
 export const config = {
   /** 服务器基础配置 */
   server: {
-    port: Number(process.env.PORT ?? 3000),
+    port: (() => {
+      const p = Number(process.env.PORT ?? 3000);
+      if (Number.isNaN(p) || p < 0 || p > 65535) {
+        console.error(`[fatal] PORT 无效: "${process.env.PORT}"，需为 0-65535 的数字`);
+        process.exit(1);
+      }
+      return p;
+    })(),
     env: process.env.NODE_ENV ?? 'development',
   },
 
