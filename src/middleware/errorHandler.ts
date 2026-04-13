@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { config } from '../config/index.js';
 
 export interface AppError extends Error {
   status?: number;
@@ -13,6 +14,6 @@ export function errorHandler(
   const status = err.status ?? 500;
   console.error(`[error] ${err.message}`, err.stack);
   res.status(status).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message,
+    error: config.server.env === 'production' ? 'Internal Server Error' : err.message,
   });
 }

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import { config } from '../config/index.js';
 
 /**
  * 验证微信服务器签名
@@ -7,7 +8,7 @@ import crypto from 'node:crypto';
  */
 export function verifySignature(req: Request, res: Response, next: NextFunction): void {
   const { signature, timestamp, nonce } = req.query as Record<string, string>;
-  const token = process.env.WECHAT_TOKEN ?? '';
+  const token = config.wechat.token;
 
   if (!signature || !timestamp || !nonce) {
     res.status(403).send('Forbidden');
