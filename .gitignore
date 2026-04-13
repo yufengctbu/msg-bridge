@@ -1,0 +1,29 @@
+# 构建产物
+dist/
+build/
+
+# 依赖
+node_modules/
+
+# 环境变量（包含敏感信息，绝不提交）
+.env
+.env.local
+.env.*.local
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# TypeScript 增量构建
+*.tsbuildinfo
