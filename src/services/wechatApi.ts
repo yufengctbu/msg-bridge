@@ -23,12 +23,39 @@ import { config } from '../config/index.js';
  * );
  * ```
  *
- * 主要能力：
- *   api.sendText(openid, text)     — 客服文本消息（不受 5s 被动回复时限）
- *   api.sendImage(openid, mediaId) — 客服图片消息
- *   api.sendVoice(openid, mediaId) — 客服语音消息
- *   api.sendNews(openid, articles) — 客服图文消息
- *   api.uploadMedia(path, type)    — 上传临时素材（image / voice / video / thumb）
+ * 主要能力（完整类型声明见 src/types/co-wechat-api.d.ts）：
+ *
+ * ── 客服消息（不受 5s 被动回复时限）────────────────────────────────────────
+ *   api.sendText(openid, text)
+ *   api.sendImage(openid, mediaId)
+ *   api.sendVoice(openid, mediaId)
+ *   api.sendVideo(openid, mediaId, thumbMediaId)
+ *   api.sendMusic(openid, music)
+ *   api.sendNews(openid, articles)
+ *   api.sendMpNews(openid, mediaId)
+ *   api.sendCard(openid, cardId)
+ *   api.sendMiniProgram(openid, miniprogram)
+ *
+ * ── 模板消息（服务号专属，结构化通知首选）──────────────────────────────────
+ *   api.sendTemplate(openid, templateId, url, color, data, miniprogram?)
+ *
+ * ── 订阅消息（小程序场景）──────────────────────────────────────────────────
+ *   api.sendSubscribeMessage(openid, templateId, page, data)
+ *
+ * ── 用户管理 ────────────────────────────────────────────────────────────────
+ *   api.getUser(openid)                   — 获取用户基本信息
+ *   api.batchGetUsers(openids)            — 批量获取（最多 100 个）
+ *   api.getFollowers(nextOpenid?)         — 获取关注者列表（翻页）
+ *
+ * ── 自定义菜单 ──────────────────────────────────────────────────────────────
+ *   api.createMenu(menu) / api.getMenu() / api.deleteMenu()
+ *
+ * ── 群发消息 ────────────────────────────────────────────────────────────────
+ *   api.massSend(opts)    — 按标签或 openid 列表群发
+ *   api.uploadNews(news)  — 上传图文素材供群发用
+ *
+ * ── 素材管理 ────────────────────────────────────────────────────────────────
+ *   api.uploadMedia(filepath, type)  — 上传临时素材（image/voice/video/thumb）
  *
  * 完整 API 参见：https://github.com/node-webot/co-wechat-api
  */
