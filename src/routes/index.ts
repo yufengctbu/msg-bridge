@@ -1,5 +1,5 @@
 import { Express, Request, Response, Router } from 'express';
-import { wechatRouter } from './wechat.js';
+import { wechatRouter } from './wechat';
 
 /** 单条路由定义 */
 interface RouteDefinition {

@@ -31,6 +31,11 @@ export const config = {
   /** 消息转发目标配置 */
   forward: {
     url: process.env.FORWARD_URL ?? '',
+    /**
+     * 其他后端调用 POST /wechat/send 时需在 X-Callback-Token 请求头中携带此值。
+     * 未配置时 /wechat/send 端点不可用。
+     */
+    callbackToken: process.env.CALLBACK_TOKEN ?? '',
   },
 } as const;
 

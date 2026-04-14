@@ -1,7 +1,8 @@
 import { parseStringPromise } from 'xml2js';
-import type { WechatIncomingMessage, WechatReply } from '../types/wechat.js';
-import { buildReplyXml } from './replyBuilder.js';
-import { wechatApi } from './wechatApi.js';
+import type { WechatIncomingMessage, WechatReply } from '../types/wechat';
+import { buildReplyXml } from './replyBuilder';
+import { wechatApi } from './wechatApi';
+import { config } from '../config';
 
 /**
  * 解析微信 XML 消息，返回被动回复 XML 字符串。
@@ -29,10 +30,73 @@ export async function handleMessage(rawXml: string): Promise<string> {
   const to = msg.ToUserName?.[0] ?? '';
   const msgType = msg.MsgType?.[0] ?? '';
 
+  // 优先转发到 FORWARD_URL，以其同步响应作为被动回复
+  if (config.forward.url) {
+    const reply = await forwardMessage(msg);
+    if (!reply) return 'success';
+    return buildReplyXml(to, from, reply);
+  }
+
   const reply = resolveReply(msg, msgType);
   if (!reply) return 'success';
 
   return buildReplyXml(to, from, reply);
+}
+
+/**
+ * 将消息以 JSON 形式转发到 FORWARD_URL，并将同步响应解析为回复指令。
+ *
+ * - 超时 4s（留 1s 余量给 WeChat 5s TTL）
+ * - 其他后端响应格式：返回 WechatReply JSON 对象 → 被动回复给用户
+ *                    响应 null / 空 body   → 不回复（返回 'success'）
+ * - 如果其他后端超时或出错，也不回复，避免 WeChat 反复重试
+ *
+ * 如果需要在 5s 后回复（异步），其他后端应调用：
+ *   POST /wechat/send
+ *   X-Callback-Token: <CALLBACK_TOKEN>
+ *   { openid, type, content, ... }
+ */
+async function forwardMessage(msg: WechatIncomingMessage): Promise<WechatReply | null> {
+  // 将 xml2js 解析的 string[] 字段展平为普通字符串
+  const payload: Record<string, string> = {};
+  for (const [key, val] of Object.entries(msg)) {
+    if (Array.isArray(val) && val.length > 0) {
+      payload[key] = val[0] as string;
+    }
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(config.forward.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      console.warn(`[forward] 转发目标响应异常: ${res.status}`);
+      return null;
+    }
+
+    const text = await res.text();
+    if (!text || text.trim() === 'null' || text.trim() === '') return null;
+
+    const data = JSON.parse(text) as WechatReply;
+    if (!data || !data.type) return null;
+    return data;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.warn('[forward] 转发超时（>4s），将由其他后端通过 /wechat/send 异步回复');
+    } else {
+      console.error('[forward] 转发失败:', err);
+    }
+    return null;
+  }
 }
 
 /**

@@ -13,6 +13,7 @@
 - [微信公众平台配置](#微信公众平台配置)
 - [消息处理开发指南](#消息处理开发指南)
 - [回复类型参考](#回复类型参考)
+- [消息转发与回复机制](#消息转发与回复机制)
 - [主动发送消息（客服接口）](#主动发送消息客服接口)
 - [生产部署](#生产部署)
 
@@ -152,6 +153,8 @@ WECHAT_APP_SECRET=your_appsecret_here
 
 # ── 消息转发目标（可选）────────────────────────────────────────
 FORWARD_URL=https://your-backend.com/webhook
+# 其他后端调用 /wechat/send 时需在 X-Callback-Token 请求头携带此值
+CALLBACK_TOKEN=your_callback_token_here
 ```
 
 | 变量名 | 必填 | 说明 |
@@ -162,6 +165,7 @@ FORWARD_URL=https://your-backend.com/webhook
 | `WECHAT_APP_ID` | **是** | 测试号的 `appID`（平台提供，在测试号管理页面顶部查看） |
 | `WECHAT_APP_SECRET` | **是** | 测试号的 `appsecret`（平台提供，在测试号管理页面顶部查看） |
 | `FORWARD_URL` | 否 | 消息转发目标 URL（如需二次转发） |
+| `CALLBACK_TOKEN` | 否 | 其他后端调用 `/wechat/send` 时的鉴权令牌（与 `FORWARD_URL` 配合使用） |
 
 > **注意**：`WECHAT_TOKEN` 不是微信平台颁发的，是你自己随意定义的字符串（如 `my_bridge_2026`），然后在 `.env` 和测试号后台两边填入同一个值即可。它与 `access_token`（通过 appId+appSecret 向微信服务器请求获得）是完全不同的概念。
 
@@ -386,6 +390,128 @@ return {
 
 ```typescript
 return null; // 微信服务器收到空响应，不展示任何内容
+```
+
+---
+
+## 消息转发与回复机制
+
+配置 `FORWARD_URL` 后，msg-bridge 将进入**桥接模式**：收到微信消息后不再走内置的 `resolveReply()`，而是把消息 POST 给你的后端，由后端决定如何回复。
+
+### 整体流程
+
+```
+微信用户发消息
+      │
+      ▼
+ msg-bridge
+      │  POST JSON（消息内容）
+      ▼
+ your-backend.com/webhook
+      │
+      ├─ 快速处理（< 4s）→ 响应 JSON 回复 ──► msg-bridge ──► 被动 XML 回复微信
+      │
+      └─ 慢速处理（> 4s）→ 响应 null/空    ──► msg-bridge 返回 success
+                               │
+                               ▼ 异步完成后
+                  POST /wechat/send（带 X-Callback-Token）
+                               │
+                               ▼
+                     msg-bridge 调用客服 API 回复用户
+```
+
+### 转发请求格式（msg-bridge → 你的后端）
+
+```http
+POST https://your-backend.com/webhook
+Content-Type: application/json
+
+{
+  "FromUserName": "用户 OpenID",
+  "ToUserName":   "公众号 gh_xxx",
+  "MsgType":      "text",
+  "MsgId":        "123456789",
+  "CreateTime":   "1713100000",
+  "Content":      "你好"
+}
+```
+
+字段与微信推送的 XML 一一对应（已展平为字符串，不含数组包装）。
+
+### 方式一：同步回复（≤ 4s）
+
+你的后端在 4 秒内响应 JSON，msg-bridge 将其转为被动 XML 回复给用户：
+
+```json
+{ "type": "text", "content": "你好！" }
+```
+
+不需要回复时响应 `null` 或空 body：
+
+```json
+null
+```
+
+支持的 `type` 与 [回复类型参考](#回复类型参考) 一致。
+
+### 方式二：异步回复（无时限）
+
+当处理时间超过 4s（如调用 AI、查数据库），先响应 `null`，处理完成后调用：
+
+```http
+POST https://msg-bridge地址/wechat/send
+X-Callback-Token: your_callback_token_here
+Content-Type: application/json
+
+{
+  "openid": "用户 OpenID（即 FromUserName）",
+  "type":   "text",
+  "content": "处理完成，结果是…"
+}
+```
+
+- `X-Callback-Token` 值必须与 `.env` 中的 `CALLBACK_TOKEN` 一致。
+- 未配置 `CALLBACK_TOKEN` 时，`/wechat/send` 端点返回 503，不可用。
+- 底层使用客服消息接口，需要用户 48h 内向公众号发过消息。
+
+**完整示例（你的后端 Node.js）：**
+
+```typescript
+import express from 'express';
+const app = express();
+app.use(express.json());
+
+app.post('/webhook', async (req, res) => {
+  const msg = req.body;
+
+  if (msg.MsgType === 'text' && msg.Content === '今天天气') {
+    // 快速回复：直接响应
+    return res.json({ type: 'text', content: '正在查询，请稍候…' });
+  }
+
+  if (msg.MsgType === 'text') {
+    // 慢操作：先响应 null，异步完成后回调
+    res.json(null);
+
+    const result = await callAI(msg.Content);
+    await fetch('https://msg-bridge地址/wechat/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Callback-Token': process.env.CALLBACK_TOKEN,
+      },
+      body: JSON.stringify({
+        openid: msg.FromUserName,
+        type: 'text',
+        content: result,
+      }),
+    });
+    return;
+  }
+
+  // 其他消息类型不回复
+  res.json(null);
+});
 ```
 
 ---

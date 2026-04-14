@@ -1,5 +1,5 @@
 import WechatAPI from 'co-wechat-api';
-import { config } from '../config/index.js';
+import { config } from '../config';
 
 /**
  * 微信公众号 API 单例。

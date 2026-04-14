@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only --esm src/index.ts",
-    "build": "tsc --project tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
     "start": "node dist/index.js",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -53,8 +53,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.2",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"
   }

@@ -1,4 +1,4 @@
-import type { NewsItem, VideoReply, MusicReply, WechatReply } from '../types/wechat.js';
+import type { NewsItem, VideoReply, MusicReply, WechatReply } from '../types/wechat';
 
 /**
  * 转义 CDATA 终止序列 `]]>`，防止用户内容注入 XML。

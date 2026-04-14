@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
-import { config } from '../config/index.js';
+import { config } from '../config';
 
 /** 允许的时间戳偏差（秒），超过此范围视为重放攻击 */
 const MAX_TIMESTAMP_AGE = 300; // 5 分钟

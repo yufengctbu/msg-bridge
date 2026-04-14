@@ -2,9 +2,9 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { config } from './config/index.js';
-import { registerRoutes } from './routes/index.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { config } from './config';
+import { registerRoutes } from './routes';
+import { errorHandler } from './middleware/errorHandler';
 
 const app: Express = express();
 

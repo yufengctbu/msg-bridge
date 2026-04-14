@@ -1,5 +1,5 @@
-import { config } from './config/index.js';
-import app from './app.js';
+import { config } from './config';
+import app from './app';
 
 // ── 必填配置校验 ─────────────────────────────────────────────
 if (!config.wechat.token) {

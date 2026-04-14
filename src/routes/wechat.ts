@@ -1,7 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { verifySignature } from '../middleware/verifySignature.js';
-import { handleMessage } from '../services/messageHandler.js';
-import { isDuplicate } from '../queue/dedupCache.js';
+import { verifySignature } from '../middleware/verifySignature';
+import { handleMessage, sendCustomerServiceMessage } from '../services/messageHandler';
+import { isDuplicate } from '../queue/dedupCache';
+import { config } from '../config';
+import type { WechatReply } from '../types/wechat';
 
 export const wechatRouter: Router = Router();
 
@@ -55,3 +57,52 @@ wechatRouter.post('/', verifySignature, async (req: Request, res: Response, next
     next(err);
   }
 });
+
+/**
+ * POST /wechat/send - 其他后端通过客服接口异步回复微信用户
+ *
+ * 鉴权：请求头 X-Callback-Token 必须与环境变量 CALLBACK_TOKEN 一致。
+ *
+ * 请求体：
+ * {
+ *   "openid": "用户 OpenID",
+ *   "type": "text" | "image" | "voice" | "video" | "music" | "news" | "markdown" | "code",
+ *   ... 对应 WechatReply 的其他字段
+ * }
+ *
+ * 响应：{ "ok": true } 或 错误 JSON
+ */
+wechatRouter.post(
+  '/send',
+  (req: Request, res: Response, next: NextFunction) => {
+    const token = config.forward.callbackToken;
+    if (!token) {
+      res.status(503).json({ error: 'CALLBACK_TOKEN 未配置，/wechat/send 端点不可用' });
+      return;
+    }
+    if (req.headers['x-callback-token'] !== token) {
+      res.status(401).json({ error: '鉴权失败' });
+      return;
+    }
+    next();
+  },
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { openid, ...replyFields } = req.body as { openid?: string } & WechatReply;
+
+      if (!openid || typeof openid !== 'string') {
+        res.status(400).json({ error: 'openid 必填' });
+        return;
+      }
+      if (!replyFields.type) {
+        res.status(400).json({ error: 'type 必填' });
+        return;
+      }
+
+      await sendCustomerServiceMessage(openid, replyFields as WechatReply);
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
