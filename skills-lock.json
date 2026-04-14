@@ -5,6 +5,11 @@
       "source": "aj-geddes/useful-ai-prompts",
       "sourceType": "github",
       "computedHash": "94af4eda308df6d27b94cc866de0d3d857755c91da01808d3d8130d91ebaf231"
+    },
+    "msg-bridge-conventions": {
+      "source": "local",
+      "sourceType": "local",
+      "computedHash": ""
     }
   }
 }

@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { HttpStatus } from './httpStatus';
 
 /**
  * 统一成功响应结构：{ ok: true, data }
@@ -8,7 +9,11 @@ import type { Response } from 'express';
  * sendSuccess(res);                     // 200 { ok: true, data: null }
  * sendSuccess(res, undefined, 201);     // 201 { ok: true, data: null }
  */
-export function sendSuccess<T = null>(res: Response, data?: T, status = 200): void {
+export function sendSuccess<T = null>(
+  res: Response,
+  data?: T,
+  status: number = HttpStatus.OK,
+): void {
   res.status(status).json({ ok: true, data: data ?? null });
 }
 
@@ -20,6 +25,10 @@ export function sendSuccess<T = null>(res: Response, data?: T, status = 200): vo
  * sendFail(res, '鉴权失败', 401);         // 401 { ok: false, code: 401, message: '鉴权失败' }
  * sendFail(res, '服务不可用', 503);       // 503 { ok: false, code: 503, message: '服务不可用' }
  */
-export function sendFail(res: Response, message: string, status = 400): void {
+export function sendFail(
+  res: Response,
+  message: string,
+  status: number = HttpStatus.BAD_REQUEST,
+): void {
   res.status(status).json({ ok: false, code: status, message });
 }

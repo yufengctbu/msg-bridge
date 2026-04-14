@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
 import { sendFail } from '../utils/response';
+import { HttpStatus } from '../utils/httpStatus';
 
 /**
  * 校验 X-Callback-Token 请求头，用于保护内部回调端点（如 POST /wechat/send）。
@@ -11,11 +12,11 @@ import { sendFail } from '../utils/response';
 export function callbackAuth(req: Request, res: Response, next: NextFunction): void {
   const token = config.forward.callbackToken;
   if (!token) {
-    sendFail(res, 'CALLBACK_TOKEN 未配置，此端点不可用', 503);
+    sendFail(res, 'CALLBACK_TOKEN 未配置，此端点不可用', HttpStatus.SERVICE_UNAVAILABLE);
     return;
   }
   if (req.headers['x-callback-token'] !== token) {
-    sendFail(res, '鉴权失败', 401);
+    sendFail(res, '鉴权失败', HttpStatus.UNAUTHORIZED);
     return;
   }
   next();
