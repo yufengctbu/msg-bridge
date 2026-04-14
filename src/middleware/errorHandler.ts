@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
+import { sendFail } from '../utils/response';
 
 export interface AppError extends Error {
   status?: number;
@@ -13,7 +14,6 @@ export function errorHandler(
 ): void {
   const status = err.status ?? 500;
   console.error(`[error] ${err.message}`, err.stack);
-  res.status(status).json({
-    error: config.server.env === 'production' ? 'Internal Server Error' : err.message,
-  });
+  const message = config.server.env === 'production' ? 'Internal Server Error' : err.message;
+  sendFail(res, message, status);
 }
