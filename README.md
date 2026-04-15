@@ -293,58 +293,156 @@ case 'text': {
 
 ## 回复类型参考
 
-`resolveReply()` 返回的对象决定回复类型，支持以下格式：
+支持通过 `resolveReply()`（被动回复）或 `POST /wechat/send`（主动推送）发送以下类型。
 
-### 文本
+> **测试号可用性说明**
+> - `text` / `image` / `voice` / `video` / `music` / `news` — 测试号全部可用
+> - `template` — 测试号需在管理页单独申请测试模板（无需认证）
+
+---
+
+### 文本（text）
+
+极简排版原则：顶格书写、段落间空一行、单条 ≤ 140 字。
 
 ```typescript
-return { type: 'text', content: '你好！' };
+return { type: 'text', content: '📅 今日日报\n\n天气：晴转多云\n气温：20°C ~ 28°C\n\n💡 适合户外活动，注意防晒。' };
 ```
 
-### Markdown（自动转换为带格式的纯文本）
+```json
+{ "openid": "oBabc123456", "type": "text", "content": "📅 今日日报\n\n天气：晴转多云\n\n💡 注意防晒。" }
+```
+
+---
+
+### 图文消息（news）— 测试号最佳视觉效果
+
+卡片形式：顶部宽图 + 加粗标题 + 灰色描述，点击跳转链接。
+适用场景：日报封面、新闻摘要、项目汇报推送。
+
+> 图片建议尺寸 **900×500px**，`picUrl` 须可公网访问且直接返回图片文件。
 
 ```typescript
 return {
-  type: 'markdown',
-  content: `## 标题\n\n- 列表项 1\n- 列表项 2\n\n**粗体内容**`,
+  type: 'news',
+  articles: [
+    {
+      title: '操作指南',
+      description: '发送 help 获取帮助，发送 status 查看状态',
+      picUrl: 'https://fastly.picsum.photos/id/137/400/200.jpg?hmac=7GOEmQEJNznawKi8mMjA3tPrgb6kbZZ0qCxn8H0RKFU',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html',
+    },
+    // 最多 8 条，第一条为封面大图
+  ],
 };
 ```
 
-发出效果（Unicode 装饰格式化）：
-
+```json
+{
+  "openid": "oBabc123456",
+  "type": "news",
+  "articles": [{
+    "title": "操作指南",
+    "description": "发送 help 获取帮助，发送 status 查看状态",
+    "picUrl": "https://fastly.picsum.photos/id/137/400/200.jpg?hmac=7GOEmQEJNznawKi8mMjA3tPrgb6kbZZ0qCxn8H0RKFU",
+    "url": "https://developers.weixin.qq.com/doc/offiaccount/Getting_Started/Overview.html"
+  }]
+}
 ```
-▌ 标题
-──────────────────
-• 列表项 1
-• 列表项 2
 
-「粗体内容」
+---
+
+### 模板消息（template）— 结构化排版
+
+适合格式固定的推送：天气、打卡提醒、数据监控。
+关键数据前加 Emoji（📅 🌤 📈），段落间用 `\n` 分隔，阅读体验更佳。
+
+**第一步：在测试号管理页申请模板**
+
+1. 访问 [测试号管理页](https://mp.weixin.qq.com/debug/cgi-bin/sandboxinfo)
+2. 下拉找到「模板消息接口」→「新增测试模板」
+3. 填写模板内容（`{{key.DATA}}` 为占位符），提交后获得 `templateId`
+
+示例模板内容：
+```
+{{first.DATA}}
+📅 日期：{{date.DATA}}
+🌤 天气：{{weather.DATA}}
+💡 寄语：{{remark.DATA}}
 ```
 
-### 代码块
+**第二步：发送请求**
 
 ```typescript
 return {
-  type: 'code',
-  language: 'typescript',
-  code: 'const greet = (name: string) => `Hello, ${name}!`;',
+  type: 'template',
+  templateId: 'your_template_id_here',
+  url: 'https://example.com',   // 点击跳转链接，留空则不跳转
+  color: null,                  // 顶部颜色，null 使用模板默认色
+  data: {
+    first:   { value: '📅 今日天气播报', color: '#173177' },
+    date:    { value: '2026-04-15' },
+    weather: { value: '厦门 晴转多云' },
+    remark:  { value: '适合户外活动，注意防晒。', color: '#999999' },
+  },
 };
 ```
 
-### 图片
+```json
+{
+  "openid": "oBabc123456",
+  "type": "template",
+  "templateId": "your_template_id_here",
+  "url": "https://example.com",
+  "color": null,
+  "data": {
+    "first":   { "value": "📅 今日天气播报", "color": "#173177" },
+    "date":    { "value": "2026-04-15" },
+    "weather": { "value": "厦门 晴转多云" },
+    "remark":  { "value": "适合户外活动，注意防晒。", "color": "#999999" }
+  }
+}
+```
+
+微信端效果：
+```
+📅 今日天气播报
+─────────────────
+📅 日期：2026-04-15
+🌤 天气：厦门 晴转多云
+💡 寄语：适合户外活动，注意防晒。
+```
+
+> `data` 的 key 必须与模板占位符完全对应；`miniprogram` 字段可选，填写后点击跳转小程序（优先级高于 `url`）。
+
+---
+
+### 图片（image）
 
 ```typescript
-// mediaId 通过 wechatApi.uploadMedia() 上传素材后获得
+// mediaId 通过 wechatApi.uploadMedia() 上传素材后获得（有效期 3 天）
 return { type: 'image', mediaId: 'MEDIA_ID' };
 ```
 
-### 语音
+```json
+{ "openid": "oBabc123456", "type": "image", "mediaId": "MEDIA_ID" }
+```
+
+---
+
+### 语音（voice）
 
 ```typescript
 return { type: 'voice', mediaId: 'MEDIA_ID' };
 ```
 
-### 视频
+```json
+{ "openid": "oBabc123456", "type": "voice", "mediaId": "MEDIA_ID" }
+```
+
+---
+
+### 视频（video）
 
 ```typescript
 return {
@@ -356,40 +454,61 @@ return {
 };
 ```
 
-### 音乐
+```json
+{ "openid": "oBabc123456", "type": "video", "mediaId": "VIDEO_MEDIA_ID", "thumbMediaId": "THUMB_MEDIA_ID", "title": "视频标题" }
+```
+
+---
+
+### 音乐（music）
 
 ```typescript
 return {
   type: 'music',
-  thumbMediaId: 'THUMB_MEDIA_ID',  // 缩略图，必填
-  title: '歌曲名',
-  description: '演唱者',
+  thumbMediaId: 'THUMB_MEDIA_ID',                   // 缩略图，必填
+  title: '光辉岁月',
+  description: 'Beyond',
   musicUrl: 'https://example.com/song.mp3',
-  hqMusicUrl: 'https://example.com/song-hq.mp3', // Wi-Fi 下播放
+  hqMusicUrl: 'https://example.com/song-hq.mp3',   // Wi-Fi 下优先播放
 };
 ```
 
-### 图文消息
-
-```typescript
-return {
-  type: 'news',
-  articles: [
-    {
-      title: '文章标题',
-      description: '文章摘要',
-      picUrl: 'https://example.com/cover.jpg',
-      url: 'https://example.com/article/1',
-    },
-    // 最多 8 条
-  ],
-};
+```json
+{ "openid": "oBabc123456", "type": "music", "thumbMediaId": "THUMB_MEDIA_ID", "title": "光辉岁月", "musicUrl": "https://example.com/song.mp3" }
 ```
+
+---
 
 ### 不回复
 
 ```typescript
 return null; // 微信服务器收到空响应，不展示任何内容
+```
+
+---
+
+### 批量发送
+
+`POST /wechat/send` 的 `openid` 字段支持字符串数组，所有类型均可批量发送：
+
+```json
+{
+  "openid": ["oBabc111", "oBabc222", "oBabc333"],
+  "type": "text",
+  "content": "群发通知内容"
+}
+```
+
+响应中包含每个 openid 的发送结果：
+
+```json
+{
+  "code": 0,
+  "results": [
+    { "openid": "oBabc111", "ok": true },
+    { "openid": "oBabc222", "ok": false, "error": "用户未关注" }
+  ]
+}
 ```
 
 ---
@@ -522,31 +641,44 @@ app.post('/webhook', async (req, res) => {
 
 > ⚠️ 测试号限制：用户必须在 **48 小时内**主动向公众号发过消息，才能收到客服消息。
 
+### 通过 HTTP 接口发送
+
+推荐外部服务使用 `POST /wechat/send` 发送，类型与 [回复类型参考](#回复类型参考) 完全一致：
+
+```http
+POST /wechat/send
+X-Callback-Token: your_callback_token_here
+Content-Type: application/json
+
+{
+  "openid": "oBabc123456",
+  "type": "text",
+  "content": "处理完成！"
+}
+```
+
+### 通过代码直接调用
+
 ```typescript
 import { wechatApi } from './services/wechatApi.js';
 
 // 发送文本
 await wechatApi.sendText(openid, '处理完成！');
 
-// 发送图片
-await wechatApi.sendImage(openid, 'MEDIA_ID');
-
 // 发送图文
-await wechatApi.sendNews(openid, [
-  {
-    title: '标题',
-    description: '描述',
-    url: 'https://example.com',
-    picurl: 'https://example.com/img.jpg',
-  },
-]);
+await wechatApi.sendNews(openid, [{
+  title: '标题',
+  description: '描述',
+  url: 'https://example.com',
+  picurl: 'https://example.com/img.jpg',
+}]);
 
-// 发送小程序卡片
-await wechatApi.sendMiniProgram(openid, {
-  title: '小程序标题',
-  appid: 'wx123456',
-  pagepath: 'pages/index/index',
-  thumb_media_id: 'THUMB_MEDIA_ID',
+// 发送模板消息
+await wechatApi.sendTemplate(openid, 'templateId', 'https://example.com', null, {
+  first:   { value: '📅 今日天气播报', color: '#173177' },
+  date:    { value: '2026-04-15' },
+  weather: { value: '厦门 晴转多云' },
+  remark:  { value: '适合户外活动，注意防晒。', color: '#999999' },
 });
 ```
 
