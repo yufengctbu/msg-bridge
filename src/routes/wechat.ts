@@ -27,6 +27,7 @@ wechatRouter.post('/', verifySignature, async (req: Request, res: Response, next
   try {
     const body = req.body as string;
     const msgKey = extractMsgKey(body);
+    console.log(msgKey, '~~~~');
 
     if (msgKey && isDuplicate(msgKey)) {
       res.send('success');

@@ -12,13 +12,17 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          envs: DEPLOY_PATH
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}
+            set -e
+            cd "$DEPLOY_PATH"
             git pull origin main
             docker compose up --build -d
             docker image prune -f
