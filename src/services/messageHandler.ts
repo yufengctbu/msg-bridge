@@ -122,12 +122,6 @@ export async function sendCustomerServiceMessage(
       case 'text':
         await wechatApi.sendText(openid, reply.content);
         break;
-      case 'markdown':
-        await wechatApi.sendText(openid, reply.content);
-        break;
-      case 'code':
-        await wechatApi.sendText(openid, `\`\`\`${reply.language}\n${reply.code}\n\`\`\``);
-        break;
       case 'image':
         await wechatApi.sendImage(openid, reply.mediaId);
         break;
@@ -155,6 +149,16 @@ export async function sendCustomerServiceMessage(
             url: a.url,
             picurl: a.picUrl,
           })),
+        );
+        break;
+      case 'template':
+        await wechatApi.sendTemplate(
+          openid,
+          reply.templateId,
+          reply.url ?? '',
+          reply.color ?? null,
+          reply.data,
+          reply.miniprogram,
         );
         break;
     }
@@ -196,12 +200,6 @@ function resolveReply(msg: WechatIncomingMessage, msgType: string): WechatReply 
     // ── 文本消息 ────────────────────────────────────────────────────────────
     case 'text': {
       const content = msg.Content?.[0] ?? '';
-      if (content.startsWith('/md ')) {
-        return { type: 'markdown', content: content.slice(4) };
-      }
-      if (content.startsWith('/code ')) {
-        return { type: 'code', language: 'typescript', code: content.slice(6) };
-      }
       return { type: 'text', content: `[msg-bridge] ${content}` };
     }
 

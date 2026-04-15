@@ -42,13 +42,13 @@ export interface WechatIncomingMessage {
   EventKey?: string[]; // 事件 KEY（菜单 CLICK / VIEW 带此字段）
 }
 
-// ── 被动回复消息类型（Discriminated Union）─────────────────────────────────
-// 官方文档：https://developers.weixin.qq.com/doc/offiaccount/Message_Management/Passive_user_reply_message.html
-//
-// 支持的被动回复类型：text / image / voice / video / music / news
-// markdown 和 code 为本项目扩展类型，最终以 text 格式发出。
+// ── 发送消息类型（Discriminated Union）──────────────────────────────────────
+// 支持的类型：text / image / voice / video / news / template
 
-/** 文本回复 */
+/**
+ * 文本回复
+ * 排版建议：段落间空行、顶格书写、单条 ≤ 140 字，避免用户频繁滑动。
+ */
 export interface TextReply {
   type: 'text';
   content: string;
@@ -101,12 +101,15 @@ export interface MusicReply {
 }
 
 /**
- * 图文消息回复
+ * 图文消息回复（News）— 测试号可用的最佳视觉效果
+ * 卡片形式：顶部宽图（建议 900×500px）+ 加粗标题 + 灰色描述，点击跳转链接。
+ * 适用场景：日报封面、新闻摘要、项目汇报推送。
  * articles：最多 8 条，第一条为封面大图（官方硬限制）。
  */
 export interface NewsItem {
   title: string;
   description: string;
+  /** 封面图链接，建议尺寸 900×500px，须可公网访问且直接返回图片 */
   picUrl: string;
   url: string;
 }
@@ -118,22 +121,26 @@ export interface NewsReply {
 }
 
 /**
- * Markdown 回复（本项目扩展）
- * 微信被动回复不渲染 Markdown，此处通过 Unicode 装饰字符格式化为可读纯文本后以 text 发出。
+ * 模板消息回复 — 结构化文本排版（仅服务号；测试号可在沙箱验证）
+ * 适用于格式固定的推送：天气、打卡提醒、数据监控等。
+ * 排版建议：关键字段前加 Emoji（📅 🌤 📈），段落间用 \n 分隔。
  */
-export interface MarkdownReply {
-  type: 'markdown';
-  content: string;
+export interface TemplateDataItem {
+  value: string;
+  color?: string;
 }
 
-/**
- * 代码块回复（本项目扩展）
- * 以带边框的纯文本格式发出，保留缩进和换行结构。
- */
-export interface CodeReply {
-  type: 'code';
-  language: string;
-  code: string;
+export interface TemplateReply {
+  type: 'template';
+  templateId: string;
+  /** 点击模板跳转链接，留空则不跳转 */
+  url?: string;
+  /** 顶部颜色，留空使用模板默认色 */
+  color?: string | null;
+  /** 模板数据，key 对应模板占位符（如 first / date / remark） */
+  data: Record<string, TemplateDataItem>;
+  /** 跳转小程序（优先级高于 url，需公众号与小程序已关联） */
+  miniprogram?: { appid: string; pagepath?: string };
 }
 
 /** 所有支持发出的回复类型 */
@@ -144,5 +151,4 @@ export type WechatReply =
   | VideoReply
   | MusicReply
   | NewsReply
-  | MarkdownReply
-  | CodeReply;
+  | TemplateReply;
