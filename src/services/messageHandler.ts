@@ -86,7 +86,13 @@ async function forwardMessage(msg: WechatIncomingMessage): Promise<WechatReply |
     const text = await res.text();
     if (!text || text.trim() === 'null' || text.trim() === '') return null;
 
-    const data = JSON.parse(text) as WechatReply;
+    let data: WechatReply;
+    try {
+      data = JSON.parse(text) as WechatReply;
+    } catch {
+      console.warn('[forward] 转发目标响应非合法 JSON:', text.slice(0, 200));
+      return null;
+    }
     if (!data || !data.type) return null;
     return data;
   } catch (err) {
@@ -156,6 +162,24 @@ export async function sendCustomerServiceMessage(
     console.error(`[wechat] 客服消息发送失败 (openid=${openid}, type=${reply.type}):`, err);
     throw err;
   }
+}
+
+/**
+ * 批量向多个用户发送客服消息，逐条发送并收集结果。
+ * 不因单个失败而中断，返回每个 openid 的发送结果。
+ */
+export async function sendBatchMessages(
+  openids: string[],
+  reply: WechatReply,
+): Promise<{ openid: string; ok: boolean; error?: string }[]> {
+  const results = await Promise.allSettled(
+    openids.map((openid) => sendCustomerServiceMessage(openid, reply)),
+  );
+  return results.map((result, i) => ({
+    openid: openids[i],
+    ok: result.status === 'fulfilled',
+    error: result.status === 'rejected' ? String(result.reason) : undefined,
+  }));
 }
 
 /**

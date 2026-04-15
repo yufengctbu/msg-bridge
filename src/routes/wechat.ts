@@ -2,7 +2,11 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { verifySignature } from '../middleware/verifySignature';
 import { callbackAuth } from '../middleware/callbackAuth';
-import { handleMessage, sendCustomerServiceMessage } from '../services/messageHandler';
+import {
+  handleMessage,
+  sendCustomerServiceMessage,
+  sendBatchMessages,
+} from '../services/messageHandler';
 import { isDuplicate } from '../queue/dedupCache';
 import { extractMsgKey } from '../utils/xml';
 import { sendSuccess, sendFail } from '../utils/response';
@@ -27,7 +31,6 @@ wechatRouter.post('/', verifySignature, async (req: Request, res: Response, next
   try {
     const body = req.body as string;
     const msgKey = extractMsgKey(body);
-    console.log(msgKey, '~~~~');
 
     if (msgKey && isDuplicate(msgKey)) {
       res.send('success');
@@ -56,10 +59,14 @@ wechatRouter.post(
   callbackAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { openid, ...replyFields } = req.body as { openid?: string } & WechatReply;
+      const { openid, ...replyFields } = req.body as { openid?: string | string[] } & WechatReply;
 
-      if (!openid || typeof openid !== 'string') {
+      if (!openid || (Array.isArray(openid) && openid.length === 0)) {
         sendFail(res, 'openid 必填');
+        return;
+      }
+      if (!Array.isArray(openid) && typeof openid !== 'string') {
+        sendFail(res, 'openid 必须为字符串或字符串数组');
         return;
       }
       if (!replyFields.type) {
@@ -67,6 +74,14 @@ wechatRouter.post(
         return;
       }
 
+      // 批量发送
+      if (Array.isArray(openid)) {
+        const results = await sendBatchMessages(openid, replyFields as WechatReply);
+        sendSuccess(res, { results });
+        return;
+      }
+
+      // 单个发送
       await sendCustomerServiceMessage(openid, replyFields as WechatReply);
       sendSuccess(res);
     } catch (err) {

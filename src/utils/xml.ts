@@ -6,13 +6,13 @@
  * - 无法识别的格式：返回空字符串，调用方应跳过去重
  */
 export function extractMsgKey(body: string): string {
-  const msgId = body.match(/<MsgId>(\d+)<\/MsgId>/)?.[1];
+  const msgId = body.match(/<MsgId>(?:<!\[CDATA\[)?(\d+)(?:]]>)?<\/MsgId>/)?.[1];
   if (msgId) return msgId;
 
   return [
-    body.match(/<FromUserName><!\[CDATA\[(.+?)]]>/)?.[1],
-    body.match(/<CreateTime>(\d+)<\/CreateTime>/)?.[1],
-    body.match(/<Event><!\[CDATA\[(.+?)]]>/)?.[1],
+    body.match(/<FromUserName>(?:<!\[CDATA\[)?(.+?)(?:]]>)?<\/FromUserName>/)?.[1],
+    body.match(/<CreateTime>(?:<!\[CDATA\[)?(\d+)(?:]]>)?<\/CreateTime>/)?.[1],
+    body.match(/<Event>(?:<!\[CDATA\[)?(.+?)(?:]]>)?<\/Event>/)?.[1],
   ]
     .filter(Boolean)
     .join('-');

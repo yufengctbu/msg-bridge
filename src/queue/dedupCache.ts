@@ -8,6 +8,7 @@
  */
 
 const TTL_MS = 60_000; // 60 秒
+const MAX_CACHE_SIZE = 10_000; // 防止极端情况下内存无限增长
 
 interface CacheEntry {
   expiresAt: number;
@@ -38,6 +39,16 @@ export function isDuplicate(msgId: string): boolean {
 
   if (entry && entry.expiresAt > now) {
     return true; // 重复消息
+  }
+
+  // 缓存满时强制清理过期条目，仍满则淘汰最早的条目
+  if (cache.size >= MAX_CACHE_SIZE) {
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now || cache.size >= MAX_CACHE_SIZE) {
+        cache.delete(key);
+      }
+      if (cache.size < MAX_CACHE_SIZE) break;
+    }
   }
 
   cache.set(msgId, { expiresAt: now + TTL_MS });

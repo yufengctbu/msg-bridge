@@ -2,6 +2,7 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { registerRoutes } from './routes';
 import { errorHandler } from './middleware/errorHandler';
@@ -12,6 +13,11 @@ const app: Express = express();
 app.use(helmet());
 app.use(cors());
 app.use(morgan(config.server.env === 'production' ? 'combined' : 'dev'));
+
+// 全局限流：每个 IP 每分钟最多 120 次请求
+app.use(
+  rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }),
+);
 
 // 微信服务器验证需要原始 text body；显式限制体积防止大 payload 攻击
 app.use(express.text({ type: 'text/xml', limit: '1mb' }));
