@@ -20,6 +20,11 @@ export function verifySignature(req: Request, res: Response, next: NextFunction)
   const token = config.wechat.token;
 
   if (!signature || !timestamp || !nonce) {
+    console.warn('[wechat] 签名验证失败：缺少参数', {
+      signature: !!signature,
+      timestamp: !!timestamp,
+      nonce: !!nonce,
+    });
     res.status(HttpStatus.FORBIDDEN).send('Forbidden');
     return;
   }
@@ -39,6 +44,7 @@ export function verifySignature(req: Request, res: Response, next: NextFunction)
   const hashBuf = Buffer.from(hash, 'utf8');
   const sigBuf = Buffer.from(signature, 'utf8');
   if (hashBuf.length !== sigBuf.length || !crypto.timingSafeEqual(hashBuf, sigBuf)) {
+    console.warn('[wechat] 签名验证失败：签名不匹配', { timestamp, nonce });
     res.status(HttpStatus.FORBIDDEN).send('Invalid signature');
     return;
   }

@@ -15,6 +15,7 @@
 - [回复类型参考](#回复类型参考)
 - [消息转发与回复机制](#消息转发与回复机制)
 - [主动发送消息（客服接口）](#主动发送消息客服接口)
+- [素材上传](#素材上传)
 - [生产部署](#生产部署)
 
 ---
@@ -27,6 +28,7 @@ src/
 │   └── index.ts          # 全局配置（统一读取环境变量）
 ├── middleware/
 │   ├── verifySignature.ts # 微信签名验证中间件
+│   ├── callbackAuth.ts    # /wechat/send 及 /wechat/upload 鉴权
 │   └── errorHandler.ts    # 全局错误处理
 ├── queue/
 │   └── dedupCache.ts      # MsgId 去重缓存（60s TTL）
@@ -35,6 +37,7 @@ src/
 │   └── wechat.ts          # GET 接入验证 / POST 消息接收
 ├── services/
 │   ├── messageHandler.ts  # 消息解析与回复逻辑（主要改这里）
+│   ├── mediaService.ts    # 素材上传（uploadTempMedia）
 │   ├── replyBuilder.ts    # 被动回复 XML 序列化
 │   └── wechatApi.ts       # co-wechat-api 单例（主动 API 调用）
 ├── types/
@@ -232,8 +235,8 @@ case 'text': {
   // 示例：关键字触发不同回复
   if (content === '帮助') {
     return {
-      type: 'markdown',
-      content: `## 使用指南\n- 发送任意文字 → 原文回显\n- 发送 \`/md 内容\` → Markdown 格式化`,
+      type: 'text',
+      content: `使用指南\n\n- 发送任意文字 → 原文回显\n- 发送 /help → 查看此帮助`,
     };
   }
 
@@ -250,8 +253,8 @@ case 'event': {
 
   if (event === 'subscribe') {
     return {
-      type: 'markdown',
-      content: `## 欢迎关注！\n\n我是 **msg-bridge** 消息助手。\n\n发送任意消息开始体验。`,
+      type: 'text',
+      content: `欢迎关注！\n\n我是 msg-bridge 消息助手。\n\n发送任意消息开始体验。`,
     };
   }
 
@@ -420,7 +423,7 @@ return {
 ### 图片（image）
 
 ```typescript
-// mediaId 通过 wechatApi.uploadMedia() 上传素材后获得（有效期 3 天）
+// mediaId 通过 POST /wechat/upload 上传后获得（有效期 3 天）
 return { type: 'image', mediaId: 'MEDIA_ID' };
 ```
 
@@ -684,14 +687,64 @@ await wechatApi.sendTemplate(openid, 'templateId', 'https://example.com', null, 
 
 `wechatApi` 上的完整方法列表见 `src/types/co-wechat-api.d.ts`，access_token 自动管理，无需手动处理。
 
-### 上传素材
+---
 
-媒体文件（图片、语音、视频）需先上传获取 `media_id`，有效期 3 天：
+## 素材上传
+
+媒体文件（图片、语音、视频）需先上传到微信获取 `mediaId`，有效期 **3 天**，可直接用于 `/wechat/send`。
+
+> ⚠️ 仅限临时素材。永久素材请使用微信公众平台后台上传。
+
+### 通过 HTTP 接口上传（推荐）
+
+```http
+POST /wechat/upload
+X-Callback-Token: your_callback_token_here
+Content-Type: multipart/form-data
+
+file=<文件>        # 必填，字段名为 file
+type=image         # 可选：image（默认）/ voice / video / thumb
+```
+
+**curl 示例：**
+
+```bash
+curl -X POST https://msg-bridge地址/wechat/upload \
+  -H "X-Callback-Token: your_callback_token_here" \
+  -F "file=@/path/to/image.jpg" \
+  -F "type=image"
+```
+
+**响应：**
+
+```json
+{ "code": 0, "data": { "mediaId": "xxxxxxx", "type": "image" } }
+```
+
+**再用 mediaId 发送图片：**
+
+```bash
+curl -X POST https://msg-bridge地址/wechat/send \
+  -H "X-Callback-Token: your_callback_token_here" \
+  -H "Content-Type: application/json" \
+  -d '{ "openid": "oBabc123456", "type": "image", "mediaId": "上一步获得的ID" }'
+```
+
+### 通过代码直接调用
 
 ```typescript
-const result = await wechatApi.uploadMedia('/path/to/image.jpg', 'image');
-console.log(result.media_id); // 使用此 ID 发送消息
+import { uploadTempMedia } from './services/mediaService.js';
+
+const mediaId = await uploadTempMedia('/path/to/image.jpg', 'image');
+await wechatApi.sendImage(openid, mediaId);
 ```
+
+| 参数 `type` | 说明 | 格式要求 |
+|---|---|---|
+| `image` | 图片 | JPG / PNG，≤ 10 MB |
+| `voice` | 语音 | AMR / MP3，≤ 2 MB，时长 ≤ 60s |
+| `video` | 视频 | MP4，≤ 10 MB |
+| `thumb` | 缩略图（音乐/视频封面） | JPG，≤ 64 KB |
 
 ---
 
@@ -765,6 +818,7 @@ CMD ["node", "dist/index.js"]
 | TypeScript | 类型安全 |
 | co-wechat-api | 微信主动 API 调用（access_token 自动管理） |
 | xml2js | 解析微信推送的 XML 消息 |
+| multer | 处理 multipart/form-data 文件上传 |
 | helmet | HTTP 安全响应头 |
 | cors | 跨域配置 |
 | morgan | HTTP 访问日志 |
